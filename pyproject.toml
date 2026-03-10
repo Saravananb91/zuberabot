@@ -5,7 +5,7 @@ description = "A lightweight personal AI assistant framework"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-    {name = "nanobot contributors"}
+    {name = "zuberabot contributors"}
 ]
 keywords = ["ai", "agent", "chatbot"]
 classifiers = [
@@ -40,7 +40,7 @@ dev = [
 ]
 
 [project.scripts]
-nanobot = "zuberabot.cli.commands:app"
+zuberabot = "zuberabot.cli.commands:app"
 
 [build-system]
 requires = ["hatchling"]

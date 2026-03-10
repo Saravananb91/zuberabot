@@ -238,13 +238,24 @@ class AgentLoop:
                     messages, response.content, tool_call_dicts
                 )
                 
-                # Execute tools
-                for tool_call in response.tool_calls:
-                    args_str = json.dumps(tool_call.arguments)
-                    logger.debug(f"Executing tool: {tool_call.name} with arguments: {args_str}")
-                    result = await self.tools.execute(tool_call.name, tool_call.arguments)
+                # Execute tools concurrently instead of blocking sequentially
+                async def execute_tool(tc):
+                    try:
+                        args_str = json.dumps(tc.arguments)
+                        logger.debug(f"Executing tool: {tc.name} with arguments: {args_str}")
+                        res = await self.tools.execute(tc.name, tc.arguments)
+                        return tc.id, tc.name, res
+                    except Exception as e:
+                        logger.error(f"Error in tool {tc.name}: {e}")
+                        return tc.id, tc.name, f"Error: {str(e)}"
+                        
+                tool_results = await asyncio.gather(
+                    *(execute_tool(tc) for tc in response.tool_calls)
+                )
+                
+                for tc_id, tc_name, result in tool_results:
                     messages = self.context.add_tool_result(
-                        messages, tool_call.id, tool_call.name, result
+                        messages, tc_id, tc_name, result
                     )
             else:
                 # No tool calls, we're done

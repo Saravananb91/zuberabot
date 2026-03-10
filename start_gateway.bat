@@ -9,10 +9,10 @@ set OLLAMA_KEEP_ALIVE=24h
 
 REM Set Python env
 set PYTHONIOENCODING=utf-8
-set PYTHONPATH=e:\demo projects\zuberaa\nanobot
+set PYTHONPATH=e:\demo projects\zuberaa\zuberabot
 
 REM Start gateway
 cd /d "e:\demo projects\zuberaa\zuberabot"
-.\venv\Scripts\python.exe -m nanobot gateway
+.\venv\Scripts\python.exe -m zuberabot gateway
 
 pause

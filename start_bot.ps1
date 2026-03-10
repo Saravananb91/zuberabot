@@ -1,4 +1,8 @@
 # Nanobot Startup Script - Ollama (Qwen 2.5 3B)
+$OutputEncoding = [System.Text.Encoding]::UTF8
+[console]::InputEncoding = [console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$env:PYTHONIOENCODING = "utf-8"
+
 Write-Host "Starting Nanobot with Ollama (qwen2.5:3b)..." -ForegroundColor Green
 
 # CRITICAL FIX: The disk is full, so pip install -e . fails.
@@ -16,7 +20,8 @@ Write-Host "Checking Ollama server at http://localhost:11434 ..." -ForegroundCol
 try {
     $resp = Invoke-WebRequest -Uri "http://localhost:11434" -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
     Write-Host "Ollama is running." -ForegroundColor Green
-} catch {
+}
+catch {
     Write-Host "WARNING: Ollama does not appear to be running on port 11434." -ForegroundColor Red
     Write-Host "Start it with:  ollama serve" -ForegroundColor Yellow
     Write-Host "Pull the model: ollama pull qwen2.5:3b" -ForegroundColor Yellow
@@ -27,6 +32,6 @@ try {
 # Add local directory to PYTHONPATH so it finds the local nanobot folder instead of nothing
 $env:PYTHONPATH = (Get-Location).Path
 
-# Start nanobot
-Write-Host "Starting nanobot gateway (using local code)..." -ForegroundColor Yellow
-.\venv\Scripts\python.exe -m nanobot gateway
+# Start zuberabot
+Write-Host "Starting zuberabot gateway (using local code)..." -ForegroundColor Yellow
+.\venv\Scripts\python.exe -m zuberabot gateway

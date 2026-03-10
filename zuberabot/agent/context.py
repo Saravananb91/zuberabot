@@ -17,7 +17,8 @@ class ContextBuilder:
     into a coherent prompt for the LLM.
     """
     
-    BOOTSTRAP_FILES = ["AGENTS.md", "SOUL.md", "USER.md", "TOOLS.md", "IDENTITY.md"]
+    # Keep only bare minimum system rules for extreme latency optimization
+    BOOTSTRAP_FILES = ["IDENTITY.md"]
     
     def __init__(self, workspace: Path):
         self.workspace = workspace
@@ -44,28 +45,14 @@ class ContextBuilder:
         if bootstrap:
             parts.append(bootstrap)
         
-        # Memory context
-        memory = self.memory.get_memory_context()
-        if memory:
-            parts.append(f"# Memory\n\n{memory}")
+        # Keep memory minimal for latency optimization
+        # memory = self.memory.get_memory_context()
+        # if memory:
+        #     parts.append(f"# Memory\n\n{memory}")
         
-        # Skills - progressive loading
-        # 1. Always-loaded skills: include full content
-        always_skills = self.skills.get_always_skills()
-        if always_skills:
-            always_content = self.skills.load_skills_for_context(always_skills)
-            if always_content:
-                parts.append(f"# Active Skills\n\n{always_content}")
-        
-        # 2. Available skills: only show summary (agent uses read_file to load)
-        skills_summary = self.skills.build_skills_summary()
-        if skills_summary:
-            parts.append(f"""# Skills
-
-The following skills extend your capabilities. To use a skill, read its SKILL.md file using the read_file tool.
-Skills with available="false" need dependencies installed first - you can try installing them with apt/brew.
-
-{skills_summary}""")
+        # Extremely fast tools context
+        parts.append("""# Skills & Tools
+You have tools for standard search, knowledge, expenses, and CRM tickets. Use them. Keep all answers under 50 words unless requesting tabular data. Always output raw text.""")
         
         return "\n\n---\n\n".join(parts)
     

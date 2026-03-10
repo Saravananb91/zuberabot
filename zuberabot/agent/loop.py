@@ -78,14 +78,14 @@ class AgentLoop:
         self.tools.register(ReadFileTool())
         self.tools.register(WriteFileTool())
         self.tools.register(EditFileTool())
-        self.tools.register(ListDirTool())
+        # self.tools.register(ListDirTool()) # Latency optimization
         
         # Shell tool
         self.tools.register(ExecTool(working_dir=str(self.workspace)))
         
         # Web tools
         self.tools.register(WebSearchTool(api_key=self.brave_api_key))
-        self.tools.register(WebFetchTool())
+        # self.tools.register(WebFetchTool()) # Latency optimization
         
         # Message tool
         message_tool = MessageTool(send_callback=self.bus.publish_outbound)
@@ -189,9 +189,15 @@ class AgentLoop:
             try:
                 with self.db.get_session() as db_session:
                     retriever = HybridRetriever(db_session)
-                    docs = retriever.retrieve(msg.content, top_k=3)
+                    docs = retriever.retrieve(msg.content, top_k=2) # Reduced from 3 to 2 to save tokens
                     if docs:
-                        retrieved_context = "\n\n[System retrieved relevant knowledge base content:]\n" + "\n---\n".join([doc.content for doc in docs])
+                        # Cap retrieval text so local LLMs don't block for minutes
+                        context_strs = []
+                        for doc in docs:
+                            content = doc.content[:2000] + "..." if len(doc.content) > 2000 else doc.content
+                            context_strs.append(content)
+                        
+                        retrieved_context = "\n\n[System retrieved relevant knowledge base content:]\n" + "\n---\n".join(context_strs)
             except Exception as e:
                 logger.error(f"RAG retrieval failed: {e}")
             

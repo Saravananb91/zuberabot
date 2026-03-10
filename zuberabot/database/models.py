@@ -220,7 +220,7 @@ class ChatSession(Base):
         self.updated_at = datetime.utcnow()
         self.last_accessed = datetime.utcnow()
     
-    def get_history(self, max_messages: int = 50, max_tokens_estimate: int = 4000) -> List[Dict[str, Any]]:
+    def get_history(self, max_messages: int = 15, max_tokens_estimate: int = 800) -> List[Dict[str, Any]]:
         """Get recent message history for LLM context using sliding window."""
         if not self.messages:
             return []

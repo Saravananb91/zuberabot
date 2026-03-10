@@ -122,10 +122,10 @@ class Conversation(Base):
     __tablename__ = "conversations"
     
     conversation_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(String(100), ForeignKey("users.user_id"), nullable=False)
+    user_id = Column(String(100), ForeignKey("users.user_id"), nullable=False, index=True)
     message = Column(Text, nullable=False)
     response = Column(Text)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
     
     # Relationship
     user = relationship("User", back_populates="conversations")
@@ -220,12 +220,26 @@ class ChatSession(Base):
         self.updated_at = datetime.utcnow()
         self.last_accessed = datetime.utcnow()
     
-    def get_history(self, max_messages: int = 50) -> List[Dict[str, Any]]:
-        """Get recent message history for LLM context."""
+    def get_history(self, max_messages: int = 50, max_tokens_estimate: int = 4000) -> List[Dict[str, Any]]:
+        """Get recent message history for LLM context using sliding window."""
         if not self.messages:
             return []
-        recent = self.messages[-max_messages:] if len(self.messages) > max_messages else self.messages
-        return [{"role": m["role"], "content": m["content"]} for m in recent]
+            
+        recent = []
+        token_count = 0
+        
+        # Parse backwards to get the most recent messages first
+        for msg in reversed(self.messages):
+            # Rough approximation: 1 word ~ 1.3 tokens
+            estimated_tokens = len(msg["content"].split()) * 1.3
+            if token_count + estimated_tokens > max_tokens_estimate or len(recent) >= max_messages:
+                # We have hit the limit, stop accumulating
+                break
+            
+            recent.insert(0, {"role": msg["role"], "content": msg["content"]})
+            token_count += estimated_tokens
+            
+        return recent
 
 
 
@@ -302,9 +316,9 @@ class Expense(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(String(100), ForeignKey('users.user_id', ondelete='CASCADE'), nullable=False, index=True)
     amount = Column(Numeric(10, 2), nullable=False)
-    category = Column(String(50), nullable=False)
+    category = Column(String(50), nullable=False, index=True)
     description = Column(String(200))
-    date = Column(DateTime, default=datetime.utcnow)
+    date = Column(DateTime, default=datetime.utcnow, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationship

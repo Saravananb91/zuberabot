@@ -475,7 +475,17 @@ class DatabaseManager:
         user_id_str = str(user_id)
         
         # Ensure user exists (similar to ticket creation logic)
-        self.get_or_create_user(user_id_str.split(':')[-1] if ':' in user_id_str else user_id_str)
+        # Check if user exists, if not create basic record
+        with self.get_session() as session:
+            from zuberabot.database.models import User
+            if not session.query(User).filter_by(user_id=user_id_str).first():
+                 # Minimal user creation
+                 user = User(
+                     user_id=user_id_str,
+                     phone_number=user_id_str.split(':')[-1] if ':' in user_id_str else user_id_str
+                 )
+                 session.add(user)
+                 session.commit()
         
         with self.get_session() as session:
             expense_date = datetime.fromisoformat(date) if date else datetime.utcnow()

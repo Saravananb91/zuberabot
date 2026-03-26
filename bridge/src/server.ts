@@ -6,9 +6,10 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { WhatsAppClient, InboundMessage } from './whatsapp.js';
 
 interface SendCommand {
-  type: 'send';
+  type: 'send' | 'presence';
   to: string;
-  text: string;
+  text?: string;
+  state?: 'composing' | 'paused';
 }
 
 interface BridgeMessage {
@@ -21,16 +22,17 @@ export class BridgeServer {
   private wa: WhatsAppClient | null = null;
   private clients: Set<WebSocket> = new Set();
 
-  constructor(private port: number, private authDir: string) {}
+  constructor(private port: number, private authDir: string, private phoneNumber?: string) { }
 
   async start(): Promise<void> {
     // Create WebSocket server
     this.wss = new WebSocketServer({ port: this.port });
-    console.log(`🌉 Bridge server listening on ws://localhost:${this.port}`);
+    console.log(`Bridge server listening on ws://localhost:${this.port}`);
 
     // Initialize WhatsApp client
     this.wa = new WhatsAppClient({
       authDir: this.authDir,
+      phoneNumber: this.phoneNumber,
       onMessage: (msg) => this.broadcast({ type: 'message', ...msg }),
       onQR: (qr) => this.broadcast({ type: 'qr', qr }),
       onStatus: (status) => this.broadcast({ type: 'status', status }),
@@ -45,7 +47,7 @@ export class BridgeServer {
         try {
           const cmd = JSON.parse(data.toString()) as SendCommand;
           await this.handleCommand(cmd);
-          ws.send(JSON.stringify({ type: 'sent', to: cmd.to }));
+          ws.send(JSON.stringify({ type: 'sent', to: cmd.to, cmd: cmd.type }));
         } catch (error) {
           console.error('Error handling command:', error);
           ws.send(JSON.stringify({ type: 'error', error: String(error) }));
@@ -68,8 +70,12 @@ export class BridgeServer {
   }
 
   private async handleCommand(cmd: SendCommand): Promise<void> {
-    if (cmd.type === 'send' && this.wa) {
-      await this.wa.sendMessage(cmd.to, cmd.text);
+    if (!this.wa) return;
+
+    if (cmd.type === 'send') {
+      await this.wa.sendMessage(cmd.to, cmd.text || '');
+    } else if (cmd.type === 'presence') {
+      await this.wa.sendPresence(cmd.to, cmd.state || 'composing');
     }
   }
 

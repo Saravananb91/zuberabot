@@ -25,11 +25,16 @@ import { join } from 'path';
 
 const PORT = parseInt(process.env.BRIDGE_PORT || '3001', 10);
 const AUTH_DIR = process.env.AUTH_DIR || join(homedir(), '.nanobot', 'whatsapp-auth');
+const PHONE = process.env.WHATSAPP_PHONE;
 
 console.log('🐈 nanobot WhatsApp Bridge');
 console.log('========================\n');
 
-const server = new BridgeServer(PORT, AUTH_DIR);
+if (PHONE) {
+  console.log(`Found phone number in environment: ${PHONE.replace(/.(?=.{4})/g, '*')}`);
+}
+
+const server = new BridgeServer(PORT, AUTH_DIR, PHONE);
 
 // Handle graceful shutdown
 process.on('SIGINT', async () => {

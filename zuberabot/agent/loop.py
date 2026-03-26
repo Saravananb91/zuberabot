@@ -87,9 +87,9 @@ class AgentLoop:
         self.tools.register(WebSearchTool(api_key=self.brave_api_key))
         # self.tools.register(WebFetchTool()) # Latency optimization
         
-        # Message tool
-        message_tool = MessageTool(send_callback=self.bus.publish_outbound)
-        self.tools.register(message_tool)
+        # Message tool (Disabled to prevent duplicate WhatsApp messages)
+        # message_tool = MessageTool(send_callback=self.bus.publish_outbound)
+        # self.tools.register(message_tool)
         
         # Spawn tool (for subagents)
         spawn_tool = SpawnTool(manager=self.subagents)
@@ -175,7 +175,15 @@ class AgentLoop:
             
         knowledge_tool = self.tools.get("store_knowledge")
         if hasattr(knowledge_tool, "set_context"):
-            knowledge_tool.set_context(msg.sender_id)
+            knowledge_tool.set_context(msg.session_key)
+            
+        expense_tool = self.tools.get("expense_tracker")
+        if hasattr(expense_tool, "set_context"):
+            expense_tool.set_context(msg.session_key)
+            
+        ticket_tool = self.tools.get("ticket_manager")
+        if hasattr(ticket_tool, "set_context"):
+            ticket_tool.set_context(msg.session_key)
         
         # Retrieve relevant contexts using RAG only for actual questions
         retrieved_context = ""

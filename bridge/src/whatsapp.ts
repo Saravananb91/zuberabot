@@ -27,6 +27,7 @@ export interface InboundMessage {
 
 export interface WhatsAppClientOptions {
   authDir: string;
+  phoneNumber?: string;
   onMessage: (msg: InboundMessage) => void;
   onQR: (qr: string) => void;
   onStatus: (status: string) => void;
@@ -61,6 +62,20 @@ export class WhatsAppClient {
       syncFullHistory: false,
       markOnlineOnConnect: false,
     });
+
+    // Handle pairing code if phone number is provided and not registered
+    if (this.options.phoneNumber && !state.creds.registered) {
+      console.log(`\n📲 Requesting pairing code for: ${this.options.phoneNumber}`);
+      try {
+        const code = await this.sock.requestPairingCode(this.options.phoneNumber);
+        console.log(`\n================================`);
+        console.log(`PAIRING CODE: ${code}`);
+        console.log(`================================\n`);
+        console.log(`Enter this code in WhatsApp (Linked Devices -> Link with phone number)\n`);
+      } catch (err) {
+        console.error('Failed to request pairing code:', err);
+      }
+    }
 
     // Handle WebSocket errors
     if (this.sock.ws && typeof this.sock.ws.on === 'function') {
@@ -174,6 +189,14 @@ export class WhatsAppClient {
     }
 
     await this.sock.sendMessage(to, { text });
+  }
+
+  async sendPresence(to: string, state: 'composing' | 'paused'): Promise<void> {
+    if (!this.sock) {
+      throw new Error('Not connected');
+    }
+
+    await this.sock.sendPresenceUpdate(state, to);
   }
 
   async disconnect(): Promise<void> {

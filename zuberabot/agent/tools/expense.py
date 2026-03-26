@@ -19,47 +19,54 @@ class ExpenseTool(Tool):
     
     def __init__(self, db: DatabaseManager):
         self.db = db
+        self.user_id = None
+    
+    def set_context(self, user_id: str):
+        """Set the context for the current user."""
+        self.user_id = user_id
     
     name = "expense_tracker"
-    description = "Track expenses, set budgets, and get spending insights"
+    description = "Track expenses (spent, bought, paid, etc.) and manage budgets"
     parameters = {
         "type": "object",
         "properties": {
             "action": {
                 "type": "string",
                 "enum": ["add_expense", "get_expenses", "monthly_summary"],
-                "description": "Action to perform"
-            },
-            "user_id": {
-                "type": "integer",
-                "description": "User ID"
+                "description": "The action to perform. Use 'add_expense' for new spending."
             },
             "category": {
                 "type": "string",
-                "description": "Expense category (food, transport, bills, entertainment, shopping, healthcare, other)"
+                "description": "Category (food, transport, bills, entertainment, shopping, healthcare, other)"
             },
             "amount": {
                 "type": "number",
-                "description": "Amount in INR"
+                "description": "The numeric amount spent in INR"
             },
             "description": {
                 "type": "string",
-                "description": "Expense description"
+                "description": "Short description of what was bought"
             },
             "month": {
                 "type": "string",
-                "description": "Month for query (YYYY-MM format)"
+                "description": "Month in YYYY-MM format (for queries)"
             }
         },
-        "required": ["action", "user_id"]
+        "required": ["action"]
     }
     
 
-    async def execute(self, action: str, user_id: int | str, **kwargs: Any) -> str:
+    async def execute(self, action: str, user_id: int | str | None = None, **kwargs: Any) -> str:
         try:
             # Ensure DB is available
             if not self.db:
                 return "❌ Error: Database not configured"
+
+            # Use tool context if user_id not provided by LLM
+            effective_user_id = user_id or self.user_id
+            
+            if not effective_user_id:
+                return "❌ Error: User ID not detected and not provided"
 
             if action == "add_expense":
                 category = kwargs.get('category', 'other')
@@ -70,7 +77,7 @@ class ExpenseTool(Tool):
                     return "❌ Error: Amount is required"
                 
                 expense = self.db.add_expense(
-                    user_id=user_id,
+                    user_id=effective_user_id,
                     amount=float(amount),
                     category=category,
                     description=description
@@ -81,7 +88,7 @@ class ExpenseTool(Tool):
                 month = kwargs.get('month')
                 category = kwargs.get('category')
                 
-                expenses = self.db.get_expenses(user_id, month, category)
+                expenses = self.db.get_expenses(effective_user_id, month, category)
                 
                 if not expenses:
                     return "No expenses found for this criteria."
@@ -97,7 +104,7 @@ class ExpenseTool(Tool):
             elif action == "monthly_summary":
                 # Re-use get_expenses for now, improved later
                 month = kwargs.get('month', datetime.now().strftime('%Y-%m'))
-                expenses = self.db.get_expenses(user_id, month=month)
+                expenses = self.db.get_expenses(effective_user_id, month=month)
                 
                 if not expenses:
                     return f"No expenses found for {month}"

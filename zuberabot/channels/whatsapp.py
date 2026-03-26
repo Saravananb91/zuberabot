@@ -27,10 +27,12 @@ class WhatsAppChannel(BaseChannel):
         self.config: WhatsAppConfig = config
         self._ws = None
         self._connected = False
+        self._processed_msg_ids: dict[str, float] = {}
     
     async def start(self) -> None:
         """Start the WhatsApp channel by connecting to the bridge."""
         import websockets
+        import time
         
         bridge_url = self.config.bridge_url
         
@@ -99,6 +101,21 @@ class WhatsAppChannel(BaseChannel):
         msg_type = data.get("type")
         
         if msg_type == "message":
+            import time
+            current_time = time.time()
+            msg_id = data.get("id", "")
+            
+            # Clean up old message IDs (older than 60s)
+            self._processed_msg_ids = {k: v for k, v in self._processed_msg_ids.items() if current_time - v < 60}
+            
+            # Deduplicate: if we've seen this message ID in the last 60s, ignore it entirely
+            if msg_id and msg_id in self._processed_msg_ids:
+                logger.debug(f"Ignoring duplicate WhatsApp message event: {msg_id}")
+                return
+                
+            if msg_id:
+                self._processed_msg_ids[msg_id] = current_time
+                
             # Incoming message from WhatsApp
             sender = data.get("sender", "")
             content = data.get("content", "")
@@ -117,11 +134,14 @@ class WhatsAppChannel(BaseChannel):
                 chat_id=sender,  # Use full JID for replies
                 content=content,
                 metadata={
-                    "message_id": data.get("id"),
+                    "message_id": msg_id,
                     "timestamp": data.get("timestamp"),
                     "is_group": data.get("isGroup", False)
                 }
             )
+            
+            # Start typing animation
+            await self.send_presence(sender, "composing")
         
         elif msg_type == "status":
             # Connection status update
@@ -139,3 +159,37 @@ class WhatsAppChannel(BaseChannel):
         
         elif msg_type == "error":
             logger.error(f"WhatsApp bridge error: {data.get('error')}")
+
+    async def send(self, msg: OutboundMessage) -> None:
+        """Send a message through WhatsApp."""
+        if not self._ws or not self._connected:
+            logger.warning("WhatsApp bridge not connected")
+            return
+        
+        try:
+            payload = {
+                "type": "send",
+                "to": msg.chat_id,
+                "text": msg.content
+            }
+            await self._ws.send(json.dumps(payload))
+            
+            # Stop typing animation after sending
+            await self.send_presence(msg.chat_id, "paused")
+        except Exception as e:
+            logger.error(f"Error sending WhatsApp message: {e}")
+
+    async def send_presence(self, chat_id: str, state: str) -> None:
+        """Send a presence update (typing status) to WhatsApp."""
+        if not self._ws or not self._connected:
+            return
+            
+        try:
+            payload = {
+                "type": "presence",
+                "to": chat_id,
+                "state": state
+            }
+            await self._ws.send(json.dumps(payload))
+        except Exception as e:
+            logger.error(f"Error sending WhatsApp presence: {e}")

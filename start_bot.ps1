@@ -3,6 +3,14 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 [console]::InputEncoding = [console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $env:PYTHONIOENCODING = "utf-8"
 
+# Kill any existing gateway processes to prevent duplicate responses
+$existingPython = Get-Process -Name python -ErrorAction SilentlyContinue
+if ($existingPython) {
+    Write-Host "Stopping existing gateway processes..." -ForegroundColor Yellow
+    $existingPython | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
+}
+
 Write-Host "Starting Nanobot with Ollama (qwen2.5:3b)..." -ForegroundColor Green
 
 # CRITICAL FIX: The disk is full, so pip install -e . fails.

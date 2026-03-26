@@ -19,6 +19,11 @@ class TicketTool(Tool):
     
     def __init__(self, db: DatabaseManager):
         self.db = db
+        self.user_id = None
+    
+    def set_context(self, user_id: str):
+        """Set the context for the current user."""
+        self.user_id = user_id
     
     @property
     def name(self) -> str:
@@ -39,8 +44,8 @@ class TicketTool(Tool):
                     "description": "Action to perform"
                 },
                 "user_id": {
-                    "type": "integer",
-                    "description": "User ID (required for create/list)"
+                    "type": "string",
+                    "description": "User ID (Auto-detected, only provide if performing action for another user)"
                 },
                 "ticket_id": {
                     "type": "integer",
@@ -79,26 +84,33 @@ class TicketTool(Tool):
     async def execute(self, action: str, **kwargs) -> str:
         """Execute ticket operation."""
         try:
+            # Use tool context if user_id not provided by LLM
+            user_id = kwargs.get('user_id') or self.user_id
+            
             if action == "create":
-                return await self._create_ticket(**kwargs)
+                if not user_id:
+                    return "❌ Error: User ID not detected and not provided"
+                return await self._create_ticket(user_id=user_id, **kwargs)
             elif action == "get":
                 return await self._get_ticket(**kwargs)
             elif action == "update":
                 return await self._update_ticket(**kwargs)
             elif action == "list":
-                return await self._list_tickets(**kwargs)
+                if not user_id:
+                    return "❌ Error: User ID not detected and not provided"
+                return await self._list_tickets(user_id=user_id, **kwargs)
             else:
                 return f"Unknown action: {action}"
         except Exception as e:
             logger.error(f"Ticket tool error: {e}")
             return f"Error: {str(e)}"
     
-    async def _create_ticket(self, user_id: int, channel: str, chat_id: str, subject: str, **kwargs) -> str:
+    async def _create_ticket(self, user_id: str | int, channel: str = "whatsapp", chat_id: str | None = None, subject: str = "Support Ticket", **kwargs) -> str:
         """Create a new ticket."""
         ticket = self.db.create_ticket(
             user_id=user_id,
             channel=channel,
-            chat_id=chat_id,
+            chat_id=chat_id or str(user_id),
             subject=subject,
             description=kwargs.get('description', ''),
             priority=kwargs.get('priority', 'medium')
